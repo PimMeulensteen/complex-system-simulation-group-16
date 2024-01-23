@@ -54,3 +54,9 @@ class Model():
         # Set the walker to be a city
         self.grid[old_x,old_y] = STRUCTURE
 
+
+#Current;ly unused
+def set_if_within_bounds(x, y, value):
+    # Set the value of grid[x,y] to value if x and y are within bounds
+    if x >= 0 and x < WIDTH and y >= 0 and y < HEIGHT:
+        grid[x,y] = value
