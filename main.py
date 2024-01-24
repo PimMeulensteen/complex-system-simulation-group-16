@@ -56,6 +56,28 @@ class Model:
         # Set the walker to be a city
         self.grid[old_x,old_y] = STRUCTURE
 
+    def get_fractal_dim(self, n_boxes=10):
+        # Calculate the fractal dimension using the box counting method
+        # https://en.wikipedia.org/wiki/Minkowski%E2%80%93Bouligand_dimension
+        # https://en.wikipedia.org/wiki/Box_counting
+        
+        # The size of each box
+        box_size = self.w // n_boxes
+
+        # The number of boxes that contain a city
+        n_filled_boxes = 0
+
+        # Loop over all boxes
+        for i in range(n_boxes):
+            for j in range(n_boxes):
+                # Check if the box contains a city
+                if np.any(self.grid[i * box_size : (i + 1) * box_size, j * box_size : (j + 1) * box_size] == STRUCTURE):
+                    n_filled_boxes += 1
+
+        # Calculate the fractal dimension
+        return np.log(n_filled_boxes) / np.log(n_boxes)
+        
+
 
 #Current;ly unused
 # def set_if_within_bounds(x, y, value):
