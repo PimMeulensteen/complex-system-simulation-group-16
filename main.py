@@ -21,10 +21,10 @@ class Model:
         # Set the center of the grid to be a city
         self.grid[self.w // 2, self.h // 2] = STRUCTURE
 
-    def loop(self, n=100):
+    def loop(self, n=100, stickiness=1):
         """Run the model for `n' iterations"""
         for _ in range(n):
-            self.update()
+            self.update(stickiness)
 
     def update(self, stickiness=1):
         """Update the model by adding a random walker to the grid. If the random walker is next to a city, it will become a city with probability `stickiness'"""
@@ -59,6 +59,10 @@ class Model:
                 y = 0
             elif y >= self.h:
                 y = self.h - 1
+
+            # Check if the walker moved into a city
+            if self.grid[x, y] == STRUCTURE and np.random.rand() > stickiness:
+                x, y = old_x, old_y
 
         # Set the walker to be a city
         self.grid[old_x, old_y] = STRUCTURE
