@@ -99,7 +99,17 @@ class Model:
 
         # Calculate the fractal dimension
         return np.log(n_filled_boxes) / np.log(n_boxes)
+    
 
+    def density_gradient(self):
+        center = self.w // 2
+        distances = []
+        densities = []
+        for radius in range(1, center):
+            mask = (np.fromfunction(lambda i, j: np.sqrt((i-center)**2 + (j-center)**2), grid.shape) < radius)
+            densities.append(np.sum(grid[mask]) / np.pi / radius**2)
+            distances.append(radius)
+        return distances, densities
 
 # Current;ly unused
 # def set_if_within_bounds(x, y, value):
