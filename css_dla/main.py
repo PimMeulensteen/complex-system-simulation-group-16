@@ -1,5 +1,5 @@
 import numpy as np
-
+import scipy.ndimage as ndimage
 NO_STRUCTURE = 0
 STRUCTURE = 2
 
