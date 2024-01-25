@@ -72,7 +72,7 @@ class Model:
         #Reset initial direction
         self.direction_index = np.random.randint(0, 8)
         
-        # Set max radius
+        # Set growing radius
         radius = self.growing_radius()
         
         # Set the walker to be a particle at a random point on the edge of a circle
