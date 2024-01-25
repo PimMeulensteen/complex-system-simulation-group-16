@@ -111,6 +111,11 @@ class Model:
             distances.append(radius)
         return distances, densities
 
+
+
+
+
+
 # Current;ly unused
 # def set_if_within_bounds(x, y, value):
 #     # Set the value of grid[x,y] to value if x and y are within bounds
