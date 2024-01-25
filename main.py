@@ -2,14 +2,12 @@ import numpy as np
 
 NO_STRUCTURE = 0
 STRUCTURE = 2
+R_SCALING_FACTOR = 20
+FOCAL_ATTRACTION = 0.2 # Between 0 and 1
+DIRECTIONAL_DRIFT = 0.2 # Between 0 and 1
 
-R_SCALING_FACTOR = 5
-FOCAL_ATTRACTION = 0 # Between 0 and 1
-DIRECTIONAL_DRIFT = 0 # Between 0 and 1
 
 class Model:
-    gird = None
-
     def __init__(self, w=100, h=100) -> None:
         self.w = w
         self.h = h
@@ -66,6 +64,9 @@ class Model:
         self.grid[old_x,old_y] = STRUCTURE
 
     def update(self):
+        #Reset initial direction
+        self.direction_index = np.random.randint(0, 8)
+        
         # Calculate radius (increases logarithmically as structure grows)
         radius = np.log(np.count_nonzero(self.grid) + 1) * R_SCALING_FACTOR
         if radius > self.w//2: radius = self.w // 2 #keeps radius within bounds
@@ -94,7 +95,7 @@ class Model:
             [0, 1],   # N
             [1, 1],   # NE
             [1, 0],   # E
-            [1, -1],  # SE
+            [1, -1],  # SE  
             [0, -1],  # S
             [-1, -1], # SW
             [-1, 0],  # W
@@ -121,7 +122,7 @@ class Model:
             # Combine directional drift and focal attraction
             probabilities = (probabilities_focal_attraction + probabilities_directional_drift) / 2
 
-            # Choose and move
+            # Choose direction and move
             self.direction_index = np.random.choice(len(directions), p = probabilities)
             direction = directions[self.direction_index]
             x += direction[0]
@@ -129,10 +130,8 @@ class Model:
 
             # Check if the walker is within bounds
             if x < 0 or x >= self.w or y < 0 or y >= self.h:
-                self.direction_index = np.random.randint(0, 8)
                 return
                 
-
         # Set the walker to be a city
         self.grid[old_x,old_y] = STRUCTURE
 
