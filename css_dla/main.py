@@ -29,6 +29,39 @@ class Model:
         for _ in range(n):
             self.update(stickiness)
 
+    def focal_attraction(self, normalized_vector_to_center, directions):
+        '''Given normalized vector from current position to the center, this function
+        assigns probabilites to the directions of next move. Directions to the center
+        are more likely due to focal attraction property.'''
+        
+        # Calculate dot products to see which direction most aligns with the vector
+        dot_prods = np.dot(directions, normalized_vector_to_center)
+        # Remove negative values
+        positive_dot_prods = np.clip(dot_prods, 0, None)
+
+        # Calculate probabilities (based on focal attraction)
+        uniform_probs = np.ones(len(directions)) / len(directions)
+        normalized_dot_prods = positive_dot_prods / positive_dot_prods.sum()
+        probabilities_focal_attraction = ((1 - FOCAL_ATTRACTION) * uniform_probs)  + (FOCAL_ATTRACTION * normalized_dot_prods)
+
+        return probabilities_focal_attraction
+    
+
+    def directional_drift(self, directions):
+        '''Given the previous direction, this function assigns probabilites
+        to the directions of next move. Directions forward (with respect to the
+        previous direction) are more likely due to directional drift.'''
+
+        # Calculate probabilities (based on directional drift)
+        uniform_probs = np.ones(len(directions)) / len(directions)
+        max_directional_drift_probs = np.zeros(len(directions))
+        max_directional_drift_probs[(self.direction_index - 1) % len(directions)] = float(1/3) # Previous element
+        max_directional_drift_probs[self.direction_index % len(directions)] = float(1/3)       # Current element
+        max_directional_drift_probs[(self.direction_index + 1) % len(directions)] = float(1/3) # Next element
+        probabilities_directional_drift = ((1 - DIRECTIONAL_DRIFT) * uniform_probs) + (DIRECTIONAL_DRIFT * max_directional_drift_probs)
+        return probabilities_directional_drift
+
+
     def update(self, stickiness=1):
         #Reset initial direction
         self.direction_index = np.random.randint(0, 8)
@@ -53,9 +86,9 @@ class Model:
 
             # Normalize vector
             if norm != 0:
-                direction_to_center = vector_to_center / norm 
+                normalized_vector_to_center = vector_to_center / norm 
             else:
-                direction_to_center = np.array([0, 0])
+                normalized_vector_to_center = np.array([0, 0])
 
             directions = np.array([
             [0, 1],   # N
@@ -67,23 +100,9 @@ class Model:
             [-1, 0],  # W
             [-1, 1]   # NW
             ])
-
-            # Calculate dot products to see which direction most aligns with the vector
-            dot_prods = np.dot(directions, direction_to_center)
-            # Remove negative values
-            positive_dot_prods = np.clip(dot_prods, 0, None)
-
-            # Calculate probabilities (based on focal attraction)
-            uniform_probs = np.ones(len(directions)) / len(directions)
-            normalized_dot_prods = positive_dot_prods / positive_dot_prods.sum()
-            probabilities_focal_attraction = ((1 - FOCAL_ATTRACTION) * uniform_probs)  + (FOCAL_ATTRACTION * normalized_dot_prods)
-
-            # Calculate probabilities (based on directional drift)
-            max_directional_drift_probs = np.zeros(len(directions))
-            max_directional_drift_probs[(self.direction_index - 1) % len(directions)] = float(1/3) # Previous element
-            max_directional_drift_probs[self.direction_index % len(directions)] = float(1/3)       # Current element
-            max_directional_drift_probs[(self.direction_index + 1) % len(directions)] = float(1/3) # Next element
-            probabilities_directional_drift = ((1 - DIRECTIONAL_DRIFT) * uniform_probs) + (DIRECTIONAL_DRIFT * max_directional_drift_probs)
+            
+            probabilities_focal_attraction = self.focal_attraction(normalized_vector_to_center, directions)
+            probabilities_directional_drift = self.directional_drift(directions)
 
             # Combine directional drift and focal attraction
             probabilities = (probabilities_focal_attraction + probabilities_directional_drift) / 2
@@ -188,7 +207,6 @@ class Model:
             densities.append(np.sum(self.grid[mask]) / np.pi / radius**2)
             distances.append(radius)
         return distances, densities
-
 
 
 
