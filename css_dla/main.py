@@ -61,14 +61,19 @@ class Model:
         probabilities_directional_drift = ((1 - DIRECTIONAL_DRIFT) * uniform_probs) + (DIRECTIONAL_DRIFT * max_directional_drift_probs)
         return probabilities_directional_drift
 
+    def growing_radius(self):
+        '''Calculates the radius where the particles appear. This radius
+        grows logarithmically as a function of structure size'''
+        radius = np.log(np.count_nonzero(self.grid) + 1) * R_SCALING_FACTOR
+        if radius > self.w//2: radius = self.w // 2 #keeps radius within bounds
+        return radius
 
     def update(self, stickiness=1):
         #Reset initial direction
         self.direction_index = np.random.randint(0, 8)
         
-        # Calculate radius (increases logarithmically as structure grows)
-        radius = np.log(np.count_nonzero(self.grid) + 1) * R_SCALING_FACTOR
-        if radius > self.w//2: radius = self.w // 2 #keeps radius within bounds
+        # Set max radius
+        radius = self.growing_radius()
         
         # Set the walker to be a particle at a random point on the edge of a circle
         center_x, center_y = self.w // 2, self.h // 2
