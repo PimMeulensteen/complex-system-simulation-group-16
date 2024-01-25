@@ -100,6 +100,7 @@ class Model:
                 
         # Set the walker to be a city
         self.grid[old_x,old_y] = STRUCTURE
+
     def update_random_walk(self, stickiness=1):
         # Calculate radius (increases logarithmically as structure grows)
         radius = np.log(np.count_nonzero(self.grid) + 1) * R_SCALING_FACTOR
@@ -183,8 +184,8 @@ class Model:
         distances = []
         densities = []
         for radius in range(1, center):
-            mask = (np.fromfunction(lambda i, j: np.sqrt((i-center)**2 + (j-center)**2), grid.shape) < radius)
-            densities.append(np.sum(grid[mask]) / np.pi / radius**2)
+            mask = (np.fromfunction(lambda i, j: np.sqrt((i-center)**2 + (j-center)**2), self.grid.shape) < radius)
+            densities.append(np.sum(self.grid[mask]) / np.pi / radius**2)
             distances.append(radius)
         return distances, densities
 
