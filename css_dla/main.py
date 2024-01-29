@@ -1,3 +1,14 @@
+"""
+This module contains the model of the city using the DLA mechanism.
+
+The model is represented by a grid of size w*h, where each cell can be either empty or contain a city.
+The model is initialized with a single city at the center of the grid, or with two cities at the center of each half of the grid.
+The model is updated by spawning a particle at a random point on the edge of a circle with a radius that grows logarithmically as a function of structure size.
+The particle then moves randomly until it encounters an established structure.
+The particle then becomes a city and the process repeats.
+The model can be run for a given number of iterations using the loop method.
+"""
+
 import numpy as np
 from scipy.optimize import curve_fit
 
@@ -20,8 +31,12 @@ DIRECTIONS = np.array(
 )
 
 
-def is_numeric(obj):
-    """Check if the object is numeric"""
+def is_numeric(obj: object) -> bool:
+    """Check if the object is numeric.
+
+    :param obj: The object to check
+    :return: Whether the object is numeric
+    """
     attrs = ["__add__", "__sub__", "__mul__", "__truediv__", "__pow__"]
     return all(hasattr(obj, attr) for attr in attrs)
 
@@ -31,8 +46,13 @@ class Model:
     It contains the grid and the methods modify it, as well as different calculations for the model.
     """
 
-    def __init__(self, w=100, h=100, mode="multiple") -> None:
-        """Initialize the model with a grid of size w*h"""
+    def __init__(self, w: int = 100, h: int = 100, mode: str = "multiple") -> None:
+        """Initialize the model with a grid of size w*h.
+
+        :param w: The width of the grid
+        :param h: The height of the grid
+        :param mode: The mode of the model. Either 'single' or 'multiple'
+        """
         # Assert that the arguments are valid
         assert mode in [
             "single",
@@ -61,8 +81,12 @@ class Model:
             np.count_nonzero(self.grid) >= 1
         ), "There should be at least one city at the start"
 
-    def loop(self, n=100, stickiness=1.0):
-        """Run the model for `n' iterations"""
+    def loop(self, n: int = 100, stickiness: float = 1.0) -> None:
+        """Run the model for `n' iterations.
+
+        :param n: The number of iterations to run the model for
+        :param stickiness: The stickiness of the model. Between 0 and 1
+        """
         # Assert that the argument n is valid
         assert n > 0, "Number of iterations must be positive"
         assert type(n) == int, "Number of iterations must be an integer"
@@ -197,17 +221,17 @@ class Model:
             center2_x, center2_y = self.w * 3 // 4, self.h * 3 // 4
             settlement_centers = [[center1_x, center1_y], [center2_x, center2_y]]
 
-        # # Set growing radius
-        # radius = self.growing_radius()
-        # # Set the walker to be a particle at a random point on the edge of a circle
-        # angle = np.random.uniform(0, 2 * np.pi)
-        # x = int(center_x + radius * np.cos(angle))
-        # y = int(center_y + radius * np.sin(angle))
-        # old_x, old_y = x, y
+        # Set growing radius
+        radius = self.growing_radius()
+        # Set the walker to be a particle at a random point on the edge of a circle
+        angle = np.random.uniform(0, 2 * np.pi)
+        x = int(center_x + radius * np.cos(angle))
+        y = int(center_y + radius * np.sin(angle))
+        old_x, old_y = x, y
 
         # Spawn particle randomly
-        x = np.random.randint(0, self.w)
-        y = np.random.randint(0, self.h)
+        # x = np.random.randint(0, self.w)
+        # y = np.random.randint(0, self.h)
 
         old_x, old_y = x, y
 

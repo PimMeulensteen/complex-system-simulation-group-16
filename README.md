@@ -22,5 +22,12 @@ This research aims to further investigate the fractal dimensions, branching rati
 ## Required packages
 - Numpy
 - Matplotlib 
+- Powerlaw 
 
-Note that these packages are also described in ``
+Note that these packages are also described in `requirements.txt`, and can be installed usign `pip3 install -r requirements.txt`.
+
+## Bonus 
+For this project, some bonus points were availilbe. From that, we have implemented the following:
+- 5-10% ‘assert’ statements inline
+- Structured as a module (`__init__.py`; e.g. `pip install .` works)
+- Documentation generated from docstrings (`pdoc css_dla`)
