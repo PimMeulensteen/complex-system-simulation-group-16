@@ -41,7 +41,7 @@ def assert_if_debug(condition: bool, message: str) -> None:
     :param message: The message to display if the condition is false
     """
     if DEBUG:
-        assert condition, message
+        assert eval(condition), message
 
 
 def is_numeric(obj: object) -> bool:
@@ -91,7 +91,7 @@ class Model:
             self.grid[self.w * 3 // 4, self.h * 3 // 4] = STRUCTURE
 
         assert_if_debug(
-            np.count_nonzero(self.grid) >= 1,
+            "np.count_nonzero(self.grid) >= 1",
             "There should be at least one city at the start",
         )
 
@@ -120,7 +120,7 @@ class Model:
         # Assert that the argument normalized_vector_to_center is valid
         assert normalized_vector_to_center.shape == (2,), "Vector must be 2-dimensional"
         assert_if_debug(
-            np.isclose(np.linalg.norm(normalized_vector_to_center), 1),
+            "np.isclose(np.linalg.norm(normalized_vector_to_center), 1)",
             "Vector must be normalized",
         )
 
@@ -138,7 +138,7 @@ class Model:
 
         # Assert that probabilities sum to 1
         assert_if_debug(
-            np.isclose(probabilities_focal_attraction.sum(), 1),
+            "np.isclose(probabilities_focal_attraction.sum(), 1)",
             "Probabilities must sum to 1",
         )
 
@@ -171,7 +171,7 @@ class Model:
 
         # Assert that probabilities sum to 1
         assert_if_debug(
-            np.isclose(probabilities_directional_drift.sum(), 1),
+            "np.isclose(probabilities_directional_drift.sum(), 1)",
             "Probabilities must sum to 1",
         )
         return probabilities_directional_drift
