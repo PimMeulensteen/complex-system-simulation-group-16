@@ -12,6 +12,8 @@ The model can be run for a given number of iterations using the loop method.
 import numpy as np
 from scipy.optimize import curve_fit
 
+DEBUG = False
+
 NO_STRUCTURE = 0
 STRUCTURE = 2
 R_SCALING_FACTOR = 20
@@ -29,6 +31,17 @@ DIRECTIONS = np.array(
         [-1, 1],  # NW
     ]
 )
+LEN_DIRECTIONS = len(DIRECTIONS)
+
+
+def assert_if_debug(condition: bool, message: str) -> None:
+    """Assert that the condition is true if the program is in debug mode.
+
+    :param condition: The condition to check
+    :param message: The message to display if the condition is false
+    """
+    if DEBUG:
+        assert condition, message
 
 
 def is_numeric(obj: object) -> bool:
@@ -77,9 +90,10 @@ class Model:
             self.grid[self.w // 4, self.h // 4] = STRUCTURE
             self.grid[self.w * 3 // 4, self.h * 3 // 4] = STRUCTURE
 
-        assert (
-            np.count_nonzero(self.grid) >= 1
-        ), "There should be at least one city at the start"
+        assert_if_debug(
+            np.count_nonzero(self.grid) >= 1,
+            "There should be at least one city at the start",
+        )
 
     def loop(self, n: int = 100, stickiness: float = 1.0) -> None:
         """Run the model for `n' iterations.
@@ -105,9 +119,10 @@ class Model:
 
         # Assert that the argument normalized_vector_to_center is valid
         assert normalized_vector_to_center.shape == (2,), "Vector must be 2-dimensional"
-        assert np.isclose(
-            np.linalg.norm(normalized_vector_to_center), 1
-        ), "Vector must be normalized"
+        assert_if_debug(
+            np.isclose(np.linalg.norm(normalized_vector_to_center), 1),
+            "Vector must be normalized",
+        )
 
         # Calculate dot products to see which direction most aligns with the vector
         dot_prods = np.dot(DIRECTIONS, normalized_vector_to_center)
@@ -115,16 +130,17 @@ class Model:
         positive_dot_prods = np.clip(dot_prods, 0, None)
 
         # Calculate probabilities (based on focal attraction)
-        uniform_probs = np.ones(len(DIRECTIONS)) / len(DIRECTIONS)
+        uniform_probs = np.ones(LEN_DIRECTIONS) / LEN_DIRECTIONS
         normalized_dot_prods = positive_dot_prods / positive_dot_prods.sum()
         probabilities_focal_attraction = ((1 - FOCAL_ATTRACTION) * uniform_probs) + (
             FOCAL_ATTRACTION * normalized_dot_prods
         )
 
         # Assert that probabilities sum to 1
-        assert np.isclose(
-            probabilities_focal_attraction.sum(), 1
-        ), "Probabilities must sum to 1"
+        assert_if_debug(
+            np.isclose(probabilities_focal_attraction.sum(), 1),
+            "Probabilities must sum to 1",
+        )
 
         return probabilities_focal_attraction
 
@@ -134,18 +150,18 @@ class Model:
         previous direction) are more likely due to directional drift."""
 
         # Calculate probabilities (based on directional drift)
-        uniform_probs = np.ones(len(DIRECTIONS)) / len(DIRECTIONS)
-        max_directional_drift_probs = np.zeros(len(DIRECTIONS))
+        uniform_probs = np.ones(LEN_DIRECTIONS) / LEN_DIRECTIONS
+        max_directional_drift_probs = np.zeros(LEN_DIRECTIONS)
         max_directional_drift_probs[
-            (self.direction_index - 1) % len(DIRECTIONS)
+            (self.direction_index - 1) % LEN_DIRECTIONS
         ] = float(
             1 / 3
         )  # Previous element
-        max_directional_drift_probs[self.direction_index % len(DIRECTIONS)] = float(
+        max_directional_drift_probs[self.direction_index % LEN_DIRECTIONS] = float(
             1 / 3
         )  # Current element
         max_directional_drift_probs[
-            (self.direction_index + 1) % len(DIRECTIONS)
+            (self.direction_index + 1) % LEN_DIRECTIONS
         ] = float(
             1 / 3
         )  # Next element
@@ -154,9 +170,10 @@ class Model:
         )
 
         # Assert that probabilities sum to 1
-        assert np.isclose(
-            probabilities_directional_drift.sum(), 1
-        ), "Probabilities must sum to 1"
+        assert_if_debug(
+            np.isclose(probabilities_directional_drift.sum(), 1),
+            "Probabilities must sum to 1",
+        )
         return probabilities_directional_drift
 
     def growing_radius(self):
@@ -166,9 +183,8 @@ class Model:
 
         assert radius >= 0, "Radius must be positive, check R_SCALING_FACTOR."
 
-        if radius > self.w // 2:
-            radius = self.w // 2  # keeps radius within bounds
-        return radius
+        # Return the radius if it is within bounds, otherwise return the maximum possible radius
+        return min(radius, self.w // 2)
 
     def norm_vector_to_center(self, x, y, center_x, center_y):
         """Takes coordinates of current position and coordinates of some
@@ -252,6 +268,7 @@ class Model:
                 city_choice_probabilities = distances_to_settlements / sum(
                     distances_to_settlements
                 )
+
                 city_chosen_index = np.random.choice(
                     len(distances_to_settlements), p=city_choice_probabilities
                 )
@@ -277,7 +294,7 @@ class Model:
             ) / 2
 
             # Choose direction and move
-            self.direction_index = np.random.choice(len(DIRECTIONS), p=probabilities)
+            self.direction_index = np.random.choice(LEN_DIRECTIONS, p=probabilities)
             direction = DIRECTIONS[self.direction_index]
             x += direction[0]
             y += direction[1]
@@ -350,7 +367,7 @@ class Model:
 
         https://en.wikipedia.org/wiki/Minkowski%E2%80%93Bouligand_dimension
         https://en.wikipedia.org/wiki/Box_counting
-        
+
         :param s: The size of each box
         :return: The fractal dimension
         """
@@ -381,26 +398,25 @@ class Model:
 
         # Calculate the fractal dimension
         return n_filled_boxes
-    
+
     def get_fractal_dim(self):
-        #store for different box sizes
+        # store for different box sizes
         log_N = []
         log_1_over_s = []
 
         for s in range(2, int(self.w // 2)):
             N = self.get_box_count(s)
             log_N.append(np.log(N))
-            log_1_over_s.append(np.log(1/s))
+            log_1_over_s.append(np.log(1 / s))
 
         def line_to_fit(log_1_over_s, C, D):
             return C + D * log_1_over_s
-        
+
         params, cov = curve_fit(line_to_fit, log_1_over_s, log_N)
 
         _, D_fit = params
 
         return D_fit
-
 
     def density_gradient(self):
         center = self.w // 2
