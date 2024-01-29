@@ -11,6 +11,8 @@ The model can be run for a given number of iterations using the loop method.
 
 import numpy as np
 from scipy.optimize import curve_fit
+import random
+import math
 
 DEBUG = False
 
@@ -34,6 +36,27 @@ DIRECTIONS = np.array(
 LEN_DIRECTIONS = len(DIRECTIONS)
 
 
+def my_random_function(collection, p):
+    # Source: https://stackoverflow.com/questions/18622781/why-is-numpy-random-choice-so-slow
+    if type(collection) == int:
+        collection = list(range(collection))
+    miles = []
+    current = 0
+    for prob in p:
+        miles.append(current)
+        current += prob
+    if not math.isclose(current, 1):
+        raise ValueError()
+    x = random.random()
+    _all = list(zip(collection, miles))
+    while len(_all) != 1:
+        if _all[len(_all) // 2][1] < x:
+            _all = _all[len(_all) // 2 :]
+        else:
+            _all = _all[0 : len(_all) // 2]
+    return _all[0][0]
+
+
 def assert_if_debug(condition: bool, message: str) -> None:
     """Assert that the condition is true if the program is in debug mode.
 
@@ -41,7 +64,7 @@ def assert_if_debug(condition: bool, message: str) -> None:
     :param message: The message to display if the condition is false
     """
     if DEBUG:
-        assert condition, message
+        assert eval(condition), message
 
 
 def is_numeric(obj: object) -> bool:
@@ -93,7 +116,7 @@ class Model:
         self.particle_generation = particle_generation
 
         assert_if_debug(
-            np.count_nonzero(self.grid) >= 1,
+            "np.count_nonzero(self.grid) >= 1",
             "There should be at least one city at the start",
         )
 
@@ -123,14 +146,15 @@ class Model:
         # Assert that the argument normalized_vector_to_center is valid
         assert normalized_vector_to_center.shape == (2,), "Vector must be 2-dimensional"
         assert_if_debug(
-            np.isclose(np.linalg.norm(normalized_vector_to_center), 1),
+            "np.isclose(np.linalg.norm(normalized_vector_to_center), 1)",
             "Vector must be normalized",
         )
 
         # Calculate dot products to see which direction most aligns with the vector
         dot_prods = np.dot(DIRECTIONS, normalized_vector_to_center)
         # Remove negative values
-        positive_dot_prods = np.clip(dot_prods, 0, None)
+        # positive_dot_prods = np.clip(dot_prods, 0, None)
+        positive_dot_prods = np.maximum(dot_prods, 0)
 
         # Calculate probabilities (based on focal attraction)
         uniform_probs = np.ones(LEN_DIRECTIONS) / LEN_DIRECTIONS
@@ -141,7 +165,7 @@ class Model:
 
         # Assert that probabilities sum to 1
         assert_if_debug(
-            np.isclose(probabilities_focal_attraction.sum(), 1),
+            "np.isclose(probabilities_focal_attraction.sum(), 1)",
             "Probabilities must sum to 1",
         )
 
@@ -174,7 +198,7 @@ class Model:
 
         # Assert that probabilities sum to 1
         assert_if_debug(
-            np.isclose(probabilities_directional_drift.sum(), 1),
+            "np.isclose(probabilities_directional_drift.sum(), 1)",
             "Probabilities must sum to 1",
         )
         return probabilities_directional_drift
@@ -203,10 +227,12 @@ class Model:
 
         # Get vector pointing to the center from current position
         vector_to_center = np.array([center_x - x, center_y - y])
-        norm = np.linalg.norm(vector_to_center)
+
+        # Get the norm of the vector, but faster than numpy :)
+        norm = self.distance(x, y, center_x, center_y)
 
         # Normalize vector
-        if norm != 0:
+        if norm:
             normalized_vector_to_center = vector_to_center / norm
         else:
             normalized_vector_to_center = np.array([0, 0])
@@ -215,9 +241,10 @@ class Model:
 
     def distance(self, x1, y1, x2, y2):
         """Calculates distance between two coordinates"""
-        assert (
-            is_numeric(x1) and is_numeric(y1) and is_numeric(x2) and is_numeric(y2)
-        ), "Coordinates must be numeric"
+        assert_if_debug(
+            "is_numeric(x1) and is_numeric(y1) and is_numeric(x2) and is_numeric(y2)",
+            "Coordinates must be numeric",
+        )
 
         return np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
@@ -273,7 +300,10 @@ class Model:
                     distances_to_settlements
                 )
 
-                city_chosen_index = np.random.choice(
+                # city_chosen_index = np.random.choice(
+                # len(distances_to_settlements), p=city_choice_probabilities
+                # )
+                city_chosen_index = my_random_function(
                     len(distances_to_settlements), p=city_choice_probabilities
                 )
 
@@ -298,7 +328,8 @@ class Model:
             ) / 2
 
             # Choose direction and move
-            self.direction_index = np.random.choice(LEN_DIRECTIONS, p=probabilities)
+            self.direction_index = my_random_function(LEN_DIRECTIONS, p=probabilities)
+
             direction = DIRECTIONS[self.direction_index]
             x += direction[0]
             y += direction[1]
