@@ -349,11 +349,15 @@ class Model:
         where N is the number of boxes that contain a city and s is the size of each box.
 
         https://en.wikipedia.org/wiki/Minkowski%E2%80%93Bouligand_dimension
-        https://en.wikipedia.org/wiki/Box_counting"""
+        https://en.wikipedia.org/wiki/Box_counting
+        
+        :param s: The size of each box
+        :return: The fractal dimension
+        """
 
         # Assert that the argument n_boxes is valid
-        assert n_boxes > 0, "Number of boxes must be positive"
-        assert type(n_boxes) == int, "Number of boxes must be an integer"
+        assert s > 0, "Number of boxes must be positive"
+        assert type(s) == int, "Number of boxes must be an integer"
 
         # The size of each box
         box_size = s
