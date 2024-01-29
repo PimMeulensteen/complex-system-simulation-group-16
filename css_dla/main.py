@@ -392,18 +392,12 @@ class Model:
         self.grid[old_x, old_y] = STRUCTURE
 
     def get_box_count(self, s):
-        """Calculate the fractal dimension using the box counting method.
-
-        This method divides the grid into n_boxes*n_boxes boxes and counts the number of boxes that contain a city.
-        The result can be used to calculate the fractal dimension using the following formula:
-        D = log(N) / log(1 / s)
-        where N is the number of boxes that contain a city and s is the size of each box.
-
-        https://en.wikipedia.org/wiki/Minkowski%E2%80%93Bouligand_dimension
-        https://en.wikipedia.org/wiki/Box_counting
+        """Helper function for calculating the fractal dimension using the box counting method.
+        Calculates and returns N, where N is the number of boxes that contain a developed part
+        of the city and s is the size of each box.
 
         :param s: The size of each box
-        :return: The fractal dimension
+        :return: N, the number of developed cells.
         """
 
         # Assert that the argument n_boxes is valid
@@ -434,10 +428,23 @@ class Model:
         return n_filled_boxes
 
     def get_fractal_dim(self):
+        """Calculates the fractal dimension using the box counting method.
+
+        This method divides the grid into n_boxes*n_boxes boxes and counts the number of boxes that contain a city.
+        The result can be used to calculate the fractal dimension using the following formula:
+        N(s)*s^D = C (Mandelbrot 1983)
+        We estimate slope D to equation Log(N(s)) = Log(C) + Dlog(1/s) + error [1]
+        where N is the number of boxes that contain a city, s is the size of each box, and D is the fractal dimension.
+
+        [1] Guoqiang Shen, "Fractal dimension and fractal growth of urbanized areas"
+
+        :return: The fractal dimension
+        """
         # store for different box sizes
         log_N = []
         log_1_over_s = []
 
+        # Collect data for different box sizes
         for s in range(2, int(self.w // 2)):
             N = self.get_box_count(s)
             log_N.append(np.log(N))
@@ -445,9 +452,9 @@ class Model:
 
         def line_to_fit(log_1_over_s, C, D):
             return C + D * log_1_over_s
-
+        
+        # Fit a line over the data to get slope D i.e. the fractal dimension
         params, cov = curve_fit(line_to_fit, log_1_over_s, log_N)
-
         _, D_fit = params
 
         return D_fit
@@ -475,10 +482,3 @@ class Model:
         assert np.all(distances[:-1] <= distances[1:]), "Distances must be sorted"
 
         return distances, densities
-
-
-# Current;ly unused
-# def set_if_within_bounds(x, y, value):
-#     # Set the value of grid[x,y] to value if x and y are within bounds
-#     if x >= 0 and x < WIDTH and y >= 0 and y < HEIGHT:
-#         grid[x,y] = value
