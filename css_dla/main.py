@@ -59,7 +59,7 @@ class Model:
     It contains the grid and the methods modify it, as well as different calculations for the model.
     """
 
-    def __init__(self, w: int = 100, h: int = 100, mode: str = "multiple") -> None:
+    def __init__(self, w: int = 100, h: int = 100, mode: str = "multiple", particle_generation = "on_radius") -> None:
         """Initialize the model with a grid of size w*h.
 
         :param w: The width of the grid
@@ -90,10 +90,13 @@ class Model:
             self.grid[self.w // 4, self.h // 4] = STRUCTURE
             self.grid[self.w * 3 // 4, self.h * 3 // 4] = STRUCTURE
 
+        self.particle_generation = particle_generation
+
         assert_if_debug(
             np.count_nonzero(self.grid) >= 1,
             "There should be at least one city at the start",
         )
+
 
     def loop(self, n: int = 100, stickiness: float = 1.0) -> None:
         """Run the model for `n' iterations.
@@ -229,27 +232,28 @@ class Model:
         # Reset initial direction
         self.direction_index = np.random.randint(0, 8)
 
-        # Set settlement center coordinates
-        if self.mode == "single":
-            center_x, center_y = self.w // 2, self.h // 2
-        elif self.mode == "multiple":
+        # Set grid center coordinates
+        center_x, center_y = self.w // 2, self.h // 2
+
+        # For multiple settlements define multiple center points
+        if self.mode == "multiple":
             center1_x, center1_y = self.w // 4, self.h // 4
             center2_x, center2_y = self.w * 3 // 4, self.h * 3 // 4
             settlement_centers = [[center1_x, center1_y], [center2_x, center2_y]]
+        
+        if self.particle_generation == "on_radius":
+            # Set growing radius
+            radius = self.growing_radius()
 
-        # Set growing radius
-        radius = self.growing_radius()
-        # Set the walker to be a particle at a random point on the edge of a circle
-        angle = np.random.uniform(0, 2 * np.pi)
-        x = int(center_x + radius * np.cos(angle))
-        y = int(center_y + radius * np.sin(angle))
-        old_x, old_y = x, y
+            # Set the walker to be a particle at a random point on the edge of a circle
+            angle = np.random.uniform(0, 2 * np.pi)
+            x = int(center_x + radius * np.cos(angle))
+            y = int(center_y + radius * np.sin(angle))
 
-        # Spawn particle randomly
-        # x = np.random.randint(0, self.w)
-        # y = np.random.randint(0, self.h)
-
-        old_x, old_y = x, y
+        elif self.particle_generation == "anywhere":
+            # Spawn particle randomly
+            x = np.random.randint(0, self.w)
+            y = np.random.randint(0, self.h)
 
         while self.grid[x, y] == NO_STRUCTURE:
             old_x, old_y = x, y
@@ -323,7 +327,6 @@ class Model:
         angle = np.random.uniform(0, 2 * np.pi)
         x = int(self.w // 2 + radius * np.cos(angle))
         y = int(self.h // 2 + radius * np.sin(angle))
-        old_x, old_y = x, y
 
         while self.grid[x, y] == NO_STRUCTURE:
             old_x, old_y = x, y
