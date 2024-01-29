@@ -418,7 +418,7 @@ class Model:
         ), "Length of distances and densities must be equal"
         assert np.all(np.array(distances) >= 0), "Distances must be positive"
         assert np.all(np.array(densities) >= 0), "Densities must be positive"
-        assert np.issorted(distances), "Distances must be sorted"
+        assert np.all(distances[:-1] <= distances[1:]), "Distances must be sorted"
 
         return distances, densities
 
