@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.optimize import curve_fit
 
 NO_STRUCTURE = 0
 STRUCTURE = 2
@@ -315,7 +316,7 @@ class Model:
         # Set the walker to be a city
         self.grid[old_x, old_y] = STRUCTURE
 
-    def get_fractal_dim(self, n_boxes=10):
+    def get_box_count(self, s):
         """Calculate the fractal dimension using the box counting method.
 
         This method divides the grid into n_boxes*n_boxes boxes and counts the number of boxes that contain a city.
@@ -331,7 +332,8 @@ class Model:
         assert type(n_boxes) == int, "Number of boxes must be an integer"
 
         # The size of each box
-        box_size = self.w // n_boxes
+        box_size = s
+        n_boxes = self.w // s
 
         # The number of boxes that contain a city
         n_filled_boxes = 0
@@ -350,9 +352,27 @@ class Model:
                     n_filled_boxes += 1
 
         # Calculate the fractal dimension
-        frac_dim = np.log(n_filled_boxes) / np.log(n_boxes)
-        assert frac_dim >= 1, "Fractal dimension must be greater than or equal to 1"
-        return frac_dim
+        return n_filled_boxes
+    
+    def get_fractal_dim(self):
+        #store for different box sizes
+        log_N = []
+        log_1_over_s = []
+
+        for s in range(2, int(self.w // 2)):
+            N = self.get_box_count(s)
+            log_N.append(np.log(N))
+            log_1_over_s.append(np.log(1/s))
+
+        def line_to_fit(log_1_over_s, C, D):
+            return C + D * log_1_over_s
+        
+        params, cov = curve_fit(line_to_fit, log_1_over_s, log_N)
+
+        _, D_fit = params
+
+        return D_fit
+
 
     def density_gradient(self):
         center = self.w // 2
