@@ -463,6 +463,7 @@ class Model:
         center = self.w // 2
         distances = []
         densities = []
+        last_mask = None
         for radius in range(1, center):
             mask = (
                 np.fromfunction(
@@ -471,6 +472,11 @@ class Model:
                 )
                 < radius
             )
+            if np.sum(self.grid[mask]) == np.sum(self.grid[last_mask]):
+                break
+
+            last_mask = mask
+
             densities.append(np.sum(self.grid[mask]) / np.pi / radius**2)
             distances.append(radius)
 
