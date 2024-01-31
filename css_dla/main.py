@@ -485,9 +485,12 @@ class Model:
             # the difference between the outer and inner masks
             ring_mask = outer_mask & ~inner_mask
 
-            # calculate the area and density of the ring 
-            ring_area = np.pi * (radius**2 - (radius - buffer_size)**2)
-            ring_density = np.sum(self.grid[ring_mask]) / ring_area
+            # calculate the number of cells and number of developed cells in the ring
+            ring_cells = np.sum(ring_mask)
+            developed_cells = np.sum(self.grid[ring_mask] == STRUCTURE)
+
+            # calculate density of the ring
+            ring_density = developed_cells / ring_cells if ring_cells > 0 else 0
             
             if ring_density == 0:
                 break
