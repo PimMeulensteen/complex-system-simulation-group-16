@@ -18,6 +18,7 @@ DEBUG = False
 
 NO_STRUCTURE = 0
 STRUCTURE = 2
+buffer_size = 1
 R_SCALING_FACTOR = 20
 FOCAL_ATTRACTION = 0.2  # Between 0 and 1
 DIRECTIONAL_DRIFT = 0.2  # Between 0 and 1
@@ -459,30 +460,42 @@ class Model:
 
         return D_fit
 
-    def density_gradient(self):
+    
+    def density_gradient(self, buffer_size):
         center = self.w // 2
         distances = []
         densities = []
-        last_mask = None
-        for radius in range(1, center):
-            mask = (
+        for radius in range(buffer_size, center, buffer_size):
+            # define the outer circle of the current ring
+            outer_mask = (
                 np.fromfunction(
                     lambda i, j: np.sqrt((i - center) ** 2 + (j - center) ** 2),
                     self.grid.shape,
                 )
                 < radius
             )
-            if np.sum(self.grid[mask]) == np.sum(self.grid[last_mask]):
+            # define the inner circle of the current ring
+            inner_mask = (
+                np.fromfunction(
+                    lambda i, j: np.sqrt((i - center) ** 2 + (j - center) ** 2),
+                    self.grid.shape,
+                )
+                < (radius - buffer_size)
+            )
+            # the difference between the outer and inner masks
+            ring_mask = outer_mask & ~inner_mask
+
+            # calculate the area and density of the ring 
+            ring_area = np.pi * (radius**2 - (radius - buffer_size)**2)
+            ring_density = np.sum(self.grid[ring_mask]) / ring_area
+            
+            if ring_density == 0:
                 break
 
-            last_mask = mask
+            densities.append(ring_density)
+            distances.append(radius - buffer_size / 2) # use the midpoint of the ring as the distance
 
-            densities.append(np.sum(self.grid[mask]) / np.pi / radius**2)
-            distances.append(radius)
-
-        assert len(distances) == len(
-            densities
-        ), "Length of distances and densities must be equal"
+        assert len(distances) == len(densities), "Length of distances and densities must be equal"
         assert np.all(np.array(distances) >= 0), "Distances must be positive"
         assert np.all(np.array(densities) >= 0), "Densities must be positive"
         assert np.all(distances[:-1] <= distances[1:]), "Distances must be sorted"
