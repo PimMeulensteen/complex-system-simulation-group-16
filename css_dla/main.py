@@ -13,13 +13,14 @@ import numpy as np
 from scipy.optimize import curve_fit
 import random
 import math
-
+from tqdm import tqdm
 DEBUG = False
 
 NO_STRUCTURE = 0
 STRUCTURE = 2
 buffer_size = 1
 R_SCALING_FACTOR = 20
+R_SCALING_FACTOR = 2
 FOCAL_ATTRACTION = 0.2  # Between 0 and 1
 DIRECTIONAL_DRIFT = 0.2  # Between 0 and 1
 DIRECTIONS = np.array(
@@ -83,7 +84,7 @@ class Model:
     It contains the grid and the methods modify it, as well as different calculations for the model.
     """
 
-    def __init__(self, w: int = 100, h: int = 100, mode: str = "multiple", particle_generation = "on_radius") -> None:
+    def __init__(self, w: int = 100, h: int = 100, mode: str = "multiple", particle_generation = "on_radius", seed=1) -> None:
         """Initialize the model with a grid of size w*h.
 
         :param w: The width of the grid
@@ -97,6 +98,10 @@ class Model:
         ], "Mode must be either 'single' or 'multiple'"
         assert w > 0 and h > 0, "Width and height must be positive"
         assert type(w) == int and type(h) == int, "Width and height must be integers"
+
+        random.seed(seed)
+        np.random.seed(seed)
+        print(seed)
 
         self.w = w
         self.h = h
@@ -137,7 +142,7 @@ class Model:
         assert type(stickiness) == float, "Stickiness must be a float"
 
         for _ in range(n):
-            self.update(stickiness)
+            self.update_random_walk(stickiness)
 
     def focal_attraction(self, normalized_vector_to_center):
         """Given normalized vector from current position to the center, this function
@@ -346,25 +351,29 @@ class Model:
         self.grid[old_x, old_y] = STRUCTURE
 
     def update_random_walk(self, stickiness=1.0):
+        global R_SCALING_FACTOR
         """Spawns a particle on a radius and calculates its next coordinate randomly.
         Places a settlement once the particle encounters an established structure."""
         assert stickiness >= 0 and stickiness <= 1, "Stickiness must be between 0 and 1"
 
         # Calculate radius (increases logarithmically as structure grows)
-        radius = np.log(np.count_nonzero(self.grid) + 1) * R_SCALING_FACTOR
-        if radius > self.w // 2:
-            radius = self.w // 2  # keeps radius within bounds
+        radius = self.growing_radius()
 
         # Set the walker to be a particle at a random point on the edge of a circle
-        angle = np.random.uniform(0, 2 * np.pi)
+        angle = random.uniform(0, 100000)
+
         x = int(self.w // 2 + radius * np.cos(angle))
         y = int(self.h // 2 + radius * np.sin(angle))
 
-        while self.grid[x, y] == NO_STRUCTURE:
+        loop_count = 0
+        old_x, old_y = x, y
+        N_MAX = 5000
+        while loop_count < N_MAX and self.grid[x, y] == NO_STRUCTURE:
+            loop_count+=1
             old_x, old_y = x, y
 
             # Move the walker
-            direction = np.random.randint(0, 4)
+            direction = random.randint(0, 3)
             if direction == 0:
                 x += 1
             elif direction == 1:
@@ -386,11 +395,16 @@ class Model:
                 y = self.h - 1
 
             # Check if the walker moved into a city
-            if self.grid[x, y] == STRUCTURE and np.random.rand() > stickiness:
-                x, y = old_x, old_y
+            # if self.grid[x, y] == STRUCTURE and np.random.rand() > stickiness:
+                # x, y = old_x, old_y
 
         # Set the walker to be a city
-        self.grid[old_x, old_y] = STRUCTURE
+        if loop_count < N_MAX:
+            self.grid[old_x, old_y] = STRUCTURE
+
+        if old_x == x and old_y == y:
+            R_SCALING_FACTOR *= 1.1
+            N_MAX *= 1.1
 
     def get_box_count(self, s):
         """Helper function for calculating the fractal dimension using the box counting method.
@@ -498,7 +512,12 @@ class Model:
             densities.append(ring_density)
             distances.append(radius - buffer_size / 2) # use the midpoint of the ring as the distance
 
-        assert len(distances) == len(densities), "Length of distances and densities must be equal"
+            densities.append(np.sum(self.grid[mask]) / len(self.grid[mask]))
+            distances.append(radius)
+
+        assert len(distances) == len(
+            densities
+        ), "Length of distances and densities must be equal"
         assert np.all(np.array(distances) >= 0), "Distances must be positive"
         assert np.all(np.array(densities) >= 0), "Densities must be positive"
         assert np.all(distances[:-1] <= distances[1:]), "Distances must be sorted"
