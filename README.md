@@ -30,4 +30,4 @@ Note that these packages are also described in `requirements.txt`, and can be in
 For this project, some bonus points were availilbe. From that, we have implemented the following:
 - 5-10% ‘assert’ statements inline
 - Structured as a module (`__init__.py`; e.g. `pip install .` works)
-- Documentation generated from docstrings (`pdoc css_dla`)
+- Documentation generated from docstrings (`pdoc css_dla`). This is also availible in the folder `documentation_from_pdoc`.
