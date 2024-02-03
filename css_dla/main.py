@@ -13,14 +13,14 @@ import numpy as np
 from scipy.optimize import curve_fit
 import random
 import math
-from tqdm import tqdm
+
+# Debug mode means that assertions will be checked
 DEBUG = False
 
 NO_STRUCTURE = 0
 STRUCTURE = 2
-buffer_size = 1
+DEFAULT_BUFFER_SIZE = 5
 R_SCALING_FACTOR = 20
-R_SCALING_FACTOR = 2
 FOCAL_ATTRACTION = 0.2  # Between 0 and 1
 DIRECTIONAL_DRIFT = 0.2  # Between 0 and 1
 DIRECTIONS = np.array(
@@ -39,23 +39,32 @@ LEN_DIRECTIONS = len(DIRECTIONS)
 
 
 def my_random_function(collection, p):
-    # Source: https://stackoverflow.com/questions/18622781/why-is-numpy-random-choice-so-slow
-    if type(collection) == int:
+    """Choose a random element from a collection based on the given probabilities.
+
+    Faster than np.random.choice for small collections.
+    Based on: https://stackoverflow.com/questions/18622781/why-is-numpy-random-choice-so-slow
+
+    :param collection: The collection to choose from
+    :param p: The probabilities of choosing each element
+    :return: The chosen element
+    """
+    if isinstance(collection, int):
         collection = list(range(collection))
     miles = []
     current = 0
     for prob in p:
         miles.append(current)
         current += prob
-    if not math.isclose(current, 1):
-        raise ValueError()
+
+    assert math.isclose(current, 1), "Probabilities must sum to 1"
+
     x = random.random()
     _all = list(zip(collection, miles))
     while len(_all) != 1:
         if _all[len(_all) // 2][1] < x:
-            _all = _all[len(_all) // 2 :]
+            _all = _all[len(_all) // 2:]
         else:
-            _all = _all[0 : len(_all) // 2]
+            _all = _all[0: len(_all) // 2]
     return _all[0][0]
 
 
@@ -84,20 +93,28 @@ class Model:
     It contains the grid and the methods modify it, as well as different calculations for the model.
     """
 
-    def __init__(self, w: int = 100, h: int = 100, mode: str = "multiple", particle_generation = "on_radius", seed=1) -> None:
+    def __init__(
+        self,
+        w: int = 100,
+        h: int = 100,
+        mode: str = "multiple",
+        particle_generation="on_radius",
+        seed=1,
+    ) -> None:
         """Initialize the model with a grid of size w*h.
 
         :param w: The width of the grid
         :param h: The height of the grid
         :param mode: The mode of the model. Either 'single' or 'multiple'
         """
-        # Assert that the arguments are valid
         assert mode in [
             "single",
             "multiple",
         ], "Mode must be either 'single' or 'multiple'"
         assert w > 0 and h > 0, "Width and height must be positive"
-        assert type(w) == int and type(h) == int, "Width and height must be integers"
+        assert isinstance(
+            w, int) and isinstance(
+            h, int), "Width and height must be integers"
 
         random.seed(seed)
         np.random.seed(seed)
@@ -116,8 +133,8 @@ class Model:
             self.grid[self.w // 2, self.h // 2] = STRUCTURE
         elif self.mode == "multiple":
             # Place two centers for each settlement
-            self.grid[self.w // 4, self.h // 4] = STRUCTURE
-            self.grid[self.w * 3 // 4, self.h * 3 // 4] = STRUCTURE
+            self.grid[4 * (self.w // 7), 4 * (self.h // 7)] = STRUCTURE
+            self.grid[self.w * 3 // 7, self.h * 3 // 7] = STRUCTURE
 
         self.particle_generation = particle_generation
 
@@ -125,7 +142,6 @@ class Model:
             "np.count_nonzero(self.grid) >= 1",
             "There should be at least one city at the start",
         )
-
 
     def loop(self, n: int = 100, stickiness: float = 1.0) -> None:
         """Run the model for `n' iterations.
@@ -135,31 +151,36 @@ class Model:
         """
         # Assert that the argument n is valid
         assert n > 0, "Number of iterations must be positive"
-        assert type(n) == int, "Number of iterations must be an integer"
+        assert isinstance(n, int), "Number of iterations must be an integer"
 
         # Assert that the argument stickiness is valid
         assert stickiness >= 0 and stickiness <= 1, "Stickiness must be between 0 and 1"
-        assert type(stickiness) == float, "Stickiness must be a float"
+        assert isinstance(stickiness, float), "Stickiness must be a float"
 
         for _ in range(n):
-            self.update_random_walk(stickiness)
+            self.update(stickiness)
 
     def focal_attraction(self, normalized_vector_to_center):
         """Given normalized vector from current position to the center, this function
         assigns probabilites to the directions of next move. Directions to the center
-        are more likely due to focal attraction property."""
+        are more likely due to focal attraction property.
+
+        :param normalized_vector_to_center: The normalized vector from the current position to the center
+        :return: The probabilities of the next move
+        """
 
         # Assert that the argument normalized_vector_to_center is valid
-        assert normalized_vector_to_center.shape == (2,), "Vector must be 2-dimensional"
+        assert normalized_vector_to_center.shape == (
+            2,), "Vector must be 2-dimensional"
         assert_if_debug(
             "np.isclose(np.linalg.norm(normalized_vector_to_center), 1)",
             "Vector must be normalized",
         )
 
-        # Calculate dot products to see which direction most aligns with the vector
+        # Calculate dot products to see which direction most aligns with the
+        # vector
         dot_prods = np.dot(DIRECTIONS, normalized_vector_to_center)
         # Remove negative values
-        # positive_dot_prods = np.clip(dot_prods, 0, None)
         positive_dot_prods = np.maximum(dot_prods, 0)
 
         # Calculate probabilities (based on focal attraction)
@@ -180,7 +201,10 @@ class Model:
     def directional_drift(self):
         """Given the previous direction, this function assigns probabilites
         to the directions of next move. Directions forward (with respect to the
-        previous direction) are more likely due to directional drift."""
+        previous direction) are more likely due to directional drift.
+
+        :return: The probabilities of the next move
+        """
 
         # Calculate probabilities (based on directional drift)
         uniform_probs = np.ones(LEN_DIRECTIONS) / LEN_DIRECTIONS
@@ -211,17 +235,28 @@ class Model:
 
     def growing_radius(self):
         """Calculates the radius where the particles appear. This radius
-        grows logarithmically as a function of structure size"""
+        grows logarithmically as a function of structure size
+
+        :return: The radius where the particles appear
+        """
         radius = np.log(np.count_nonzero(self.grid) + 1) * R_SCALING_FACTOR
 
         assert radius >= 0, "Radius must be positive, check R_SCALING_FACTOR."
 
-        # Return the radius if it is within bounds, otherwise return the maximum possible radius
+        # Return the radius if it is within bounds, otherwise return the
+        # maximum possible radius
         return min(radius, self.w // 2)
 
     def norm_vector_to_center(self, x, y, center_x, center_y):
         """Takes coordinates of current position and coordinates of some
-        center (settlement). Returns a normalized vector to that center."""
+        center (settlement). Returns a normalized vector to that center.
+
+        :param x: The x-coordinate of the current position
+        :param y: The y-coordinate of the current position
+        :param center_x: The x-coordinate of the center
+        :param center_y: The y-coordinate of the center
+        :return: The normalized vector to the center
+        """
 
         # Assert that the arguments are valid
         assert (
@@ -246,7 +281,14 @@ class Model:
         return normalized_vector_to_center
 
     def distance(self, x1, y1, x2, y2):
-        """Calculates distance between two coordinates"""
+        """Calculates distance between two coordinates.
+
+        :param x1: The x-coordinate of the first point
+        :param y1: The y-coordinate of the first point
+        :param x2: The x-coordinate of the second point
+        :param y2: The y-coordinate of the second point
+        :return: The distance between the two points
+        """
         assert_if_debug(
             "is_numeric(x1) and is_numeric(y1) and is_numeric(x2) and is_numeric(y2)",
             "Coordinates must be numeric",
@@ -259,7 +301,10 @@ class Model:
         the directional drift and focal attraction. If multiple settlements are considered,
         the particle is more likely to head in the direction of the closer one.
         Places a settlement once the particle encounters an established structure.
-        Stops if movement goes off the grid."""
+        Stops if movement goes off the grid.
+
+        :param stickiness: The stickiness of the model. Between 0 and 1
+        """
         assert stickiness >= 0 and stickiness <= 1, "Stickiness must be between 0 and 1"
 
         # Reset initial direction
@@ -272,13 +317,15 @@ class Model:
         if self.mode == "multiple":
             center1_x, center1_y = self.w // 4, self.h // 4
             center2_x, center2_y = self.w * 3 // 4, self.h * 3 // 4
-            settlement_centers = [[center1_x, center1_y], [center2_x, center2_y]]
-        
+            settlement_centers = [
+                [center1_x, center1_y], [center2_x, center2_y]]
+
         if self.particle_generation == "on_radius":
             # Set growing radius
             radius = self.growing_radius()
 
-            # Set the walker to be a particle at a random point on the edge of a circle
+            # Set the walker to be a particle at a random point on the edge of
+            # a circle
             angle = np.random.uniform(0, 2 * np.pi)
             x = int(center_x + radius * np.cos(angle))
             y = int(center_y + radius * np.sin(angle))
@@ -297,7 +344,8 @@ class Model:
                 )
 
             elif self.mode == "multiple":
-                # Choose a city to go to by calculating probabilites based on which one is closest
+                # Choose a city to go to by calculating probabilites based on
+                # which one is closest
                 distances_to_settlements = [
                     self.distance(x, y, center1_x, center1_y),
                     self.distance(x, y, center2_x, center2_y),
@@ -306,9 +354,6 @@ class Model:
                     distances_to_settlements
                 )
 
-                # city_chosen_index = np.random.choice(
-                # len(distances_to_settlements), p=city_choice_probabilities
-                # )
                 city_chosen_index = my_random_function(
                     len(distances_to_settlements), p=city_choice_probabilities
                 )
@@ -334,7 +379,8 @@ class Model:
             ) / 2
 
             # Choose direction and move
-            self.direction_index = my_random_function(LEN_DIRECTIONS, p=probabilities)
+            self.direction_index = my_random_function(
+                LEN_DIRECTIONS, p=probabilities)
 
             direction = DIRECTIONS[self.direction_index]
             x += direction[0]
@@ -344,32 +390,33 @@ class Model:
             if x < 0 or x >= self.w or y < 0 or y >= self.h:
                 return
 
-            if self.grid[x, y] != NO_STRUCTURE and np.random.rand() > stickiness:
+            if self.grid[x, y] != NO_STRUCTURE and np.random.rand(
+            ) > stickiness:
                 x, y = old_x, old_y
 
         # Set the walker to be a city
         self.grid[old_x, old_y] = STRUCTURE
 
     def update_random_walk(self, stickiness=1.0):
-        global R_SCALING_FACTOR
         """Spawns a particle on a radius and calculates its next coordinate randomly.
-        Places a settlement once the particle encounters an established structure."""
+        Places a settlement once the particle encounters an established structure.
+
+        :param stickiness: The stickiness of the model. Between 0 and 1
+        """
         assert stickiness >= 0 and stickiness <= 1, "Stickiness must be between 0 and 1"
 
         # Calculate radius (increases logarithmically as structure grows)
         radius = self.growing_radius()
 
-        # Set the walker to be a particle at a random point on the edge of a circle
-        angle = random.uniform(0, 100000)
+        # Set the walker to be a particle at a random point on the edge of a
+        # circle
+        angle = random.uniform(0, 2 * np.pi)
 
         x = int(self.w // 2 + radius * np.cos(angle))
         y = int(self.h // 2 + radius * np.sin(angle))
 
-        loop_count = 0
         old_x, old_y = x, y
-        N_MAX = 5000
-        while loop_count < N_MAX and self.grid[x, y] == NO_STRUCTURE:
-            loop_count+=1
+        while self.grid[x, y] == NO_STRUCTURE:
             old_x, old_y = x, y
 
             # Move the walker
@@ -394,17 +441,11 @@ class Model:
             elif y >= self.h:
                 y = self.h - 1
 
-            # Check if the walker moved into a city
-            # if self.grid[x, y] == STRUCTURE and np.random.rand() > stickiness:
-                # x, y = old_x, old_y
+            if self.grid[x, y] != NO_STRUCTURE and np.random.rand(
+            ) > stickiness:
+                x, y = old_x, old_y
 
-        # Set the walker to be a city
-        if loop_count < N_MAX:
-            self.grid[old_x, old_y] = STRUCTURE
-
-        if old_x == x and old_y == y:
-            R_SCALING_FACTOR *= 1.1
-            N_MAX *= 1.1
+        self.grid[old_x, old_y] = STRUCTURE
 
     def get_box_count(self, s):
         """Helper function for calculating the fractal dimension using the box counting method.
@@ -417,7 +458,7 @@ class Model:
 
         # Assert that the argument n_boxes is valid
         assert s > 0, "Number of boxes must be positive"
-        assert type(s) == int, "Number of boxes must be an integer"
+        assert isinstance(s, int), "Number of boxes must be an integer"
 
         # The size of each box
         box_size = s
@@ -432,8 +473,8 @@ class Model:
                 # Check if the box contains a city
                 if np.any(
                     self.grid[
-                        i * box_size : (i + 1) * box_size,
-                        j * box_size : (j + 1) * box_size,
+                        i * box_size: (i + 1) * box_size,
+                        j * box_size: (j + 1) * box_size,
                     ]
                     == STRUCTURE
                 ):
@@ -455,7 +496,7 @@ class Model:
 
         :return: The fractal dimension
         """
-        # store for different box sizes
+        # Store for different box sizes
         log_N = []
         log_1_over_s = []
 
@@ -467,15 +508,24 @@ class Model:
 
         def line_to_fit(log_1_over_s, C, D):
             return C + D * log_1_over_s
-        
+
         # Fit a line over the data to get slope D i.e. the fractal dimension
         params, cov = curve_fit(line_to_fit, log_1_over_s, log_N)
         _, D_fit = params
 
         return D_fit
 
-    
-    def density_gradient(self, buffer_size):
+    def density_gradient(self, buffer_size=None):
+        """Calculates the density gradient of the city.
+
+        The density gradient is calculated by dividing the city into rings of increasing radius and calculating the density of each ring.
+        The density of a ring is the number of developed cells in the ring divided by the number of cells in the ring.
+
+        :param buffer_size: The size of the buffer between rings
+        :return: The distances and densities of the rings
+        """
+        if not buffer_size:
+            buffer_size = DEFAULT_BUFFER_SIZE
         center = self.w // 2
         distances = []
         densities = []
@@ -483,43 +533,42 @@ class Model:
             # define the outer circle of the current ring
             outer_mask = (
                 np.fromfunction(
-                    lambda i, j: np.sqrt((i - center) ** 2 + (j - center) ** 2),
+                    lambda i, j: np.sqrt(
+                        (i - center) ** 2 + (j - center) ** 2),
                     self.grid.shape,
                 )
                 < radius
             )
             # define the inner circle of the current ring
-            inner_mask = (
-                np.fromfunction(
-                    lambda i, j: np.sqrt((i - center) ** 2 + (j - center) ** 2),
-                    self.grid.shape,
-                )
-                < (radius - buffer_size)
-            )
+            inner_mask = np.fromfunction(
+                lambda i, j: np.sqrt((i - center) ** 2 + (j - center) ** 2),
+                self.grid.shape,
+            ) < (radius - buffer_size)
             # the difference between the outer and inner masks
             ring_mask = outer_mask & ~inner_mask
 
-            # calculate the number of cells and number of developed cells in the ring
+            # calculate the number of cells and number of developed cells in
+            # the ring
             ring_cells = np.sum(ring_mask)
             developed_cells = np.sum(self.grid[ring_mask] == STRUCTURE)
 
             # calculate density of the ring
             ring_density = developed_cells / ring_cells if ring_cells > 0 else 0
-            
-            if ring_density == 0:
+
+            if ring_density == 0 and radius > 50:
                 break
 
             densities.append(ring_density)
-            distances.append(radius - buffer_size / 2) # use the midpoint of the ring as the distance
-
-            densities.append(np.sum(self.grid[mask]) / len(self.grid[mask]))
-            distances.append(radius)
+            distances.append(
+                radius - buffer_size / 2
+            )  # use the midpoint of the ring as the distance
 
         assert len(distances) == len(
             densities
         ), "Length of distances and densities must be equal"
         assert np.all(np.array(distances) >= 0), "Distances must be positive"
         assert np.all(np.array(densities) >= 0), "Densities must be positive"
-        assert np.all(distances[:-1] <= distances[1:]), "Distances must be sorted"
+        assert np.all(distances[:-1] <= distances[1:]
+                      ), "Distances must be sorted"
 
         return distances, densities
