@@ -20,10 +20,12 @@ This research aims to further investigate the fractal dimensions, branching rati
 
 
 ## Required packages
-- Numpy
-- Matplotlib 
-- Powerlaw 
-
+- numpy
+- matplotlib
+- powerlaw
+- scipy
+- seaborn
+- multiprocess
 Note that these packages are also described in `requirements.txt`, and can be installed usign `pip3 install -r requirements.txt`.
 
 ## Bonus 

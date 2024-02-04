@@ -8,6 +8,9 @@ setup(
     install_requires = [
         "numpy",
         "matplotlib",
-        "powerlaw"
+        "powerlaw",
+        "scipy",
+        "seaborn",
+        "multiprocess"
     ],
 )
